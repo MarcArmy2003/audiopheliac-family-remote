@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Audiopheliac">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon-precomposed" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Unica+One&display=swap" rel="stylesheet">
+<title>The Audiopheliac Remote</title>
+<style>
+:root{
+  --sunlamp:#F8E91F;--lime:#99E257;--signal:#41D99A;--cyan:#0ABED3;
+  --sapphire:#0F82DF;--indigo:#5E54D4;--magenta:#C24CC8;
+  --ink:#0A0A0B;--paper:#F5F5F7;--hair:rgba(255,255,255,.14);--mute:#8b8b96;
+  --spectrum:linear-gradient(90deg,#F8E91F 0%,#99E257 16%,#41D99A 32%,#0ABED3 48%,#0F82DF 64%,#5E54D4 80%,#C24CC8 100%);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;background:#0A0A0B;color:#F5F5F7;
+  font-family:Inter,Helvetica,Arial,sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+.spectrum{height:4px;flex:0 0 auto;background:var(--spectrum)}
+header{display:flex;align-items:center;gap:12px;padding:14px 16px 12px}
+.mark{width:36px;height:36px;border-radius:8px;background:var(--spectrum);display:grid;place-items:center}
+.mark i{width:16px;height:16px;border-radius:50%;border:2px solid var(--ink)}
+h1{font-family:"Unica One",Inter,sans-serif;font-size:22px;margin:0;font-weight:400}
+.sub{font-size:12px;color:var(--mute);margin-top:2px}
+.spacer{flex:1}
+.icon-btn{width:46px;height:46px;border-radius:12px;border:1px solid var(--hair);background:transparent;color:var(--paper);font-size:20px}
+#status{font-size:11px;padding:5px 11px;border-radius:99px;border:1px solid var(--hair);color:var(--mute);font-family:ui-monospace,monospace}
+#status.ok{color:var(--signal);border-color:rgba(65,217,154,.4)}
+#status.bad{color:#e08a7a}
+nav{display:flex;gap:6px;padding:6px 14px 10px}
+.tab{flex:1;min-width:72px;padding:14px 6px;text-align:center;border-radius:12px;font-size:14px;border:1px solid var(--hair);background:transparent;color:var(--mute);font-weight:600}
+.tab.on{background:var(--sunlamp);color:var(--ink);border-color:var(--sunlamp)}
+main{flex:1;overflow-y:auto;padding:10px 14px 28px}
+.page{display:none}.page.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.scene{min-height:88px;border-radius:16px;border:1px solid var(--hair);background:rgba(255,255,255,.03);display:flex;align-items:flex-end;padding:16px;cursor:pointer}
+.scene .lb{font-family:"Unica One",Inter,sans-serif;font-size:20px}
+.scene.primary{background:var(--sunlamp);color:var(--ink);border-color:var(--sunlamp)}
+.scene.danger{border-color:rgba(194,76,200,.45)}
+.card{border:1px solid var(--hair);border-radius:16px;padding:15px;margin-bottom:13px;background:rgba(255,255,255,.03)}
+.card h2{margin:0 0 3px;font-family:"Unica One",Inter,sans-serif;font-size:18px;font-weight:400}
+.card .meta{font-size:12px;color:var(--cyan);margin-bottom:12px;font-family:ui-monospace,monospace}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;min-width:70px;min-height:56px;border-radius:12px;border:1px solid var(--hair);background:transparent;color:var(--paper);font-size:14px;font-weight:600;font-family:Inter,sans-serif}
+.btn:active{background:var(--magenta);border-color:var(--magenta)}
+.btn.gold{background:var(--sunlamp);color:var(--ink);border-color:var(--sunlamp)}
+.btn.wide{min-width:100%}
+.btn.sm{min-height:46px;font-size:12px}
+.btn.on{background:var(--sunlamp);color:var(--ink);border-color:var(--sunlamp)}
+label{display:block;font-size:12px;color:var(--mute);margin:12px 0 5px}
+input{width:100%;padding:13px;border-radius:11px;border:1px solid var(--hair);background:rgba(0,0,0,.45);color:var(--paper);font-size:15px}
+.slider{width:100%;height:52px;-webkit-appearance:none;background:transparent}
+.slider::-webkit-slider-runnable-track{height:14px;border-radius:99px;background:var(--spectrum)}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:42px;height:42px;border-radius:50%;background:var(--paper);margin-top:-14px;border:3px solid var(--ink)}
+.drawer{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;z-index:60;overflow-y:auto;padding:18px}
+.drawer.on{display:block}
+.drawer .inner{max-width:560px;margin:0 auto;background:#111114;border:1px solid var(--hair);border-radius:18px;padding:20px}
+.dev{display:flex;align-items:center;gap:11px;padding:11px;border-radius:11px;border:1px solid var(--hair);margin-bottom:8px}
+.dev .n{flex:1}.dev .n b{display:block;color:var(--paper)}.dev .n span{font-size:11px;color:var(--mute)}
+.pill{font-size:10px;padding:4px 9px;border-radius:99px;border:1px solid var(--hair);color:var(--mute)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);background:var(--sunlamp);color:var(--ink);padding:13px 22px;border-radius:99px;font-size:14px;font-weight:600;z-index:90;transition:transform .22s;max-width:88vw;text-align:center}
+#toast.on{transform:translateX(-50%) translateY(0)}
+.dock{flex:0 0 auto;padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--hair);background:#111114}
+.dock .lab{font-size:11px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase;margin:0 0 6px}
+.dock .row{align-items:center}
+.hint{font-size:13px;color:var(--mute);line-height:1.55;margin:12px 0 0}
+.hint b{color:var(--paper)}
+hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
+.install{border:1px solid var(--hair);border-radius:16px;padding:14px 16px;margin-bottom:14px;background:rgba(248,233,31,.06)}
+.install p{margin:0 0 8px;font-size:14px;line-height:1.45}
+.install code{font-family:ui-monospace,monospace;color:var(--sunlamp);font-size:13px}
+.now-body{display:flex;gap:14px;align-items:stretch}
+.now-art{width:112px;height:112px;flex:0 0 auto;border-radius:10px;background:linear-gradient(135deg,var(--signal),var(--sapphire) 50%,var(--indigo));position:relative}
+.now-art:after{content:"";position:absolute;inset:44px;border-radius:50%;background:var(--sunlamp)}
+.now-info{min-width:0;flex:1}
+.now-track{font-family:"Unica One",Inter,sans-serif;font-size:26px;line-height:1.05;margin:0 0 4px}
+.now-artist{color:var(--sunlamp);margin:0 0 2px;font-weight:500}
+.now-album{color:var(--mute);margin:0 0 10px;font-size:13px}
+.yamaha-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tile{border:1px solid var(--hair);border-radius:10px;padding:12px;background:#0A0A0B}
+.tile-label{display:block;font-size:11px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.tile-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.power{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;border:1px solid var(--signal);color:var(--signal);background:rgba(65,217,154,.08);font:600 13px Inter,sans-serif}
+.power.off{border-color:var(--mute);color:var(--mute);background:transparent}
+.power-dot{width:8px;height:8px;border-radius:50%;background:var(--signal)}
+.power.off .power-dot{background:var(--mute)}
+.t-toggle{background:transparent;border:1px solid var(--hair);color:var(--paper);padding:10px 12px;border-radius:99px;font:600 12px Inter,sans-serif}
+.t-toggle.on{color:var(--sunlamp);border-color:var(--sunlamp)}
+.sources{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.src-btn{min-height:48px;border:1px solid var(--hair);border-radius:8px;background:transparent;color:var(--paper);font:500 13px Inter,sans-serif}
+.src-btn.on{background:var(--sunlamp);color:var(--ink);border-color:var(--sunlamp);font-weight:600}
+.master-vol{display:flex;align-items:center;gap:8px;margin-top:12px}
+.master-vol label{margin:0;min-width:52px}
+.master-vol .slider{flex:1}
+.master-vol-num{color:var(--sunlamp);font-weight:600;font-variant-numeric:tabular-nums;min-width:42px;text-align:right}
+.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.preset{min-height:56px;border:1px solid var(--hair);border-radius:8px;background:transparent;color:var(--paper);font:500 12px Inter,sans-serif;padding:6px 4px}
+.preset-num{display:block;font-size:10px;color:var(--mute)}
+.preset.on{border-color:var(--sapphire);color:var(--sapphire)}
+.thermo{display:flex;align-items:center;gap:16px;padding:6px 0 4px}
+.thermo-temp{font-family:"Unica One",Inter,sans-serif;font-size:72px;line-height:.9;min-width:110px;letter-spacing:-.03em}
+.thermo-temp small{font-size:28px;color:var(--mute)}
+.thermo-meta{flex:1;min-width:0}
+.thermo-set{font-size:15px;color:var(--sunlamp);margin:0 0 4px;font-weight:600}
+.thermo-mode{font-size:13px;color:var(--mute);margin:0}
+.thermo-btns{display:flex;flex-direction:column;gap:8px}
+.thermo-btns .btn{min-width:88px;min-height:64px;font-size:28px;font-weight:500}
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="spectrum"></div>
+<header>
+  <div class="mark"><i></i></div>
+  <div><h1>The Audiopheliac</h1><div class="sub">Family room</div></div>
+  <div class="spacer"></div>
+  <div id="status">checking</div>
+  <button class="icon-btn" id="gear">&#9881;</button>
+</header>
+<nav>
+  <div class="tab on" data-p="scenes">Scenes</div>
+  <div class="tab" data-p="climate">Climate</div>
+  <div class="tab" data-p="audio">Audio</div>
+  <div class="tab" data-p="lights">Lights</div>
+  <div class="tab" data-p="video">Video</div>
+</nav>
+<main>
+  <section class="page on" id="p-scenes">
+    <div class="install">
+      <p><b>Samsung:</b> Chrome → menu (⋮) → Add to Home screen.</p>
+      <p><b>iPhone / iPad:</b> Safari only → Share (box with arrow) → Add to Home Screen → Add. Then open the icon, not Safari.</p>
+      <p>This PC must be running GO.cmd. Use the address printed in the black window — <code>http://192.168.1.XXX:8099</code></p>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn gold" data-tv="on">TV on</button>
+      <button class="btn" data-tv="off">TV off</button>
+    </div>
+    <div class="card" id="climate-card">
+      <h2>House</h2>
+      <div class="meta" id="th-meta">Honeywell RTH9585WF</div>
+      <div class="thermo">
+        <div class="thermo-temp" id="th-temp">—<small>°</small></div>
+        <div class="thermo-meta">
+          <p class="thermo-set" id="th-set">Setpoint —</p>
+          <p class="thermo-mode" id="th-mode">Sign in under Setup if this is empty.</p>
+        </div>
+        <div class="thermo-btns">
+          <button class="btn gold" id="th-up" aria-label="Warmer">+</button>
+          <button class="btn" id="th-down" aria-label="Cooler">−</button>
+        </div>
+      </div>
+      <div class="modes">
+        <button class="btn sm" data-thmode="cool">Cool</button>
+        <button class="btn sm" data-thmode="auto">Auto</button>
+        <button class="btn sm" data-thmode="heat">Heat</button>
+        <button class="btn sm" data-thmode="off">Off</button>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="scene primary" data-s="movie"><div class="lb">Movie night</div></div>
+      <div class="scene" data-s="vinyl"><div class="lb">Vinyl</div></div>
+      <div class="scene" data-s="music"><div class="lb">Music</div></div>
+      <div class="scene" data-s="ps5"><div class="lb">PlayStation</div></div>
+      <div class="scene" data-s="xbox"><div class="lb">Xbox</div></div>
+      <div class="scene" data-s="lights"><div class="lb">Lights only</div></div>
+      <div class="scene danger" data-s="off"><div class="lb">All off</div></div>
+    </div>
+    <p class="hint">Each scene runs the signal chain in order and names anything that failed.</p>
+  </section>
+
+  <section class="page" id="p-climate">
+    <div class="card">
+      <h2>House</h2>
+      <div class="meta">Honeywell RTH9585WF · Total Connect Comfort</div>
+      <div class="thermo">
+        <div class="thermo-temp" id="th-temp2">—<small>°</small></div>
+        <div class="thermo-meta">
+          <p class="thermo-set" id="th-set2">Setpoint —</p>
+          <p class="thermo-mode" id="th-mode2">Outside —</p>
+        </div>
+        <div class="thermo-btns">
+          <button class="btn gold" id="th-up2" aria-label="Warmer">+</button>
+          <button class="btn" id="th-down2" aria-label="Cooler">−</button>
+        </div>
+      </div>
+      <div class="modes">
+        <button class="btn sm" data-thmode="cool">Cool</button>
+        <button class="btn sm" data-thmode="auto">Auto</button>
+        <button class="btn sm" data-thmode="heat">Heat</button>
+        <button class="btn sm" data-thmode="off">Off</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm" data-thfan="auto">Fan auto</button>
+        <button class="btn sm" data-thfan="on">Fan on</button>
+      </div>
+      <p class="hint" id="th-hint">Warmer and cooler change the setpoint one degree. Florida default is Cool.</p>
+    </div>
+  </section>
+
+  <section class="page" id="p-audio">
+    <div class="card">
+      <h2>Now playing</h2>
+      <div class="meta" id="now-meta">Yamaha R-N800A · 192.168.1.191</div>
+      <div class="now-body">
+        <div class="now-art" id="now-art"></div>
+        <div class="now-info">
+          <h3 class="now-track" id="now-track">Nothing playing yet.</h3>
+          <p class="now-artist" id="now-artist"></p>
+          <p class="now-album" id="now-album"></p>
+          <div class="row">
+            <button class="btn sm" data-tr="previous">Prev</button>
+            <button class="btn gold" data-tr="play_pause">Play / pause</button>
+            <button class="btn sm" data-tr="next">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Yamaha R-N800A</h2>
+      <div class="meta" id="m-yamaha">YXC · 192.168.1.191</div>
+      <div class="yamaha-grid">
+        <div class="tile">
+          <span class="tile-label">Power</span>
+          <div class="tile-row">
+            <button class="power" id="btn-power" data-y="power"><span class="power-dot"></span> <span id="power-state">On</span></button>
+          </div>
+        </div>
+        <div class="tile">
+          <span class="tile-label">Mute</span>
+          <div class="tile-row">
+            <span id="mute-state">Off</span>
+            <button class="t-toggle" data-y="mute">Toggle</button>
+          </div>
+        </div>
+      </div>
+      <span class="tile-label">Source</span>
+      <div class="sources" id="yinputs"></div>
+      <div class="master-vol">
+        <label>Master</label>
+        <button class="btn sm" data-y="vdown" style="flex:0 0 48px;min-width:48px">−</button>
+        <input class="slider" type="range" min="0" max="161" value="40" id="yvol">
+        <button class="btn sm" data-y="vup" style="flex:0 0 48px;min-width:48px">+</button>
+        <span class="master-vol-num" id="yvol-num">--%</span>
+      </div>
+      <span class="tile-label" style="margin-top:14px">Net radio presets</span>
+      <div class="presets" id="ypresets"></div>
+      <p class="hint">Presets save on the receiver in MusicCast. Bass, treble, balance, and Pure Direct are front-panel only on this firmware.</p>
+    </div>
+    <div class="card">
+      <h2>Bose Lifestyle 650</h2>
+      <div class="meta" id="m-bose">SoundTouch on :8090 if the console answers</div>
+      <div class="row">
+        <button class="btn gold" id="bose-on">Lifestyle on</button>
+        <button class="btn" id="bose-off">Lifestyle off</button>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn" data-b="MUTE">Mute</button>
+        <button class="btn sm" data-b="VOLUME_DOWN">Vol −</button>
+        <button class="btn sm" data-b="VOLUME_UP">Vol +</button>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" data-b="PRESET_1">1</button>
+        <button class="btn sm" data-b="PRESET_2">2</button>
+        <button class="btn sm" data-b="PRESET_3">3</button>
+        <button class="btn sm" data-b="PRESET_4">4</button>
+        <button class="btn sm" data-b="PRESET_5">5</button>
+        <button class="btn sm" data-b="PRESET_6">6</button>
+        <button class="btn sm" data-b="AUX_INPUT">AUX</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="p-lights">
+    <div class="card">
+      <h2>Philips Hue</h2>
+      <div class="meta" id="m-hue">Bridge 2.0 at 192.168.1.165</div>
+      <div id="hue-rooms"></div>
+      <div id="hue-setup" style="display:none">
+        <p class="hint"><b>One-time.</b> Press the Hue Bridge button, then tap below.</p>
+        <button class="btn gold wide" id="hue-link" style="margin-top:10px">Bridge button pressed — link now</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="p-video">
+    <div class="card">
+      <h2>Family Room — NU6950</h2>
+      <div class="meta" id="m-tv">UN65NU6950 · never the lanai U7900</div>
+      <div class="meta" id="m-tv">not found yet</div>
+      <div class="row">
+        <button class="btn gold" data-tv="on">TV on</button>
+        <button class="btn" data-tv="off">TV off</button>
+      </div>
+      <p class="hint">These two only touch the Samsung. Nothing else changes.</p>
+      <button class="btn gold wide" id="tv-find" style="margin-top:10px">Find TV</button>
+      <button class="btn wide" id="tv-pair" style="margin-top:8px">Pair TV</button>
+      <p class="hint">Power will not show a box on the TV. Use <b>Pair TV</b> only. TV must be on the <b>Home</b> screen — leave PlayStation / HDMI. Watch the top-right of the set for ~50 seconds. Allow Audiopheliac.</p>
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" data-t="KEY_SOURCE">Source</button>
+        <button class="btn sm" data-t="KEY_HDMI">HDMI</button>
+        <button class="btn sm" data-t="KEY_HOME">Home</button>
+        <button class="btn sm" data-t="KEY_RETURN">Back</button>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" data-t="KEY_UP">▲</button>
+        <button class="btn sm" data-t="KEY_ENTER">OK</button>
+        <button class="btn sm" data-t="KEY_DOWN">▼</button>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" data-t="KEY_LEFT">◀</button>
+        <button class="btn sm" data-t="KEY_RETURN">Back</button>
+        <button class="btn sm" data-t="KEY_RIGHT">▶</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Consoles</h2>
+      <div class="meta">Wake-on-LAN. Xbox MAC is filled.</div>
+      <div class="row">
+        <button class="btn" data-w="ps5">Wake PS5</button>
+        <button class="btn" data-w="xbox">Wake Xbox</button>
+        <button class="btn" data-w="shield">Wake Shield</button>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="dock">
+  <p class="lab" id="vol-lab">House volume</p>
+  <div class="row">
+    <button class="btn" id="vol-down">Quieter</button>
+    <button class="btn gold" id="vol-up">Louder</button>
+    <button class="btn sm" id="vol-mute">Mute</button>
+  </div>
+</div>
+<div class="drawer" id="drawer">
+  <div class="inner">
+    <div style="display:flex;align-items:center">
+      <h2 style="margin:0;font-family:'Unica One',sans-serif;font-size:18px">Setup</h2>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="close">&times;</button>
+    </div>
+    <button class="btn gold wide" id="scan" style="margin-top:16px">Find my devices</button>
+    <p class="hint">Turn Yamaha, Bose, TV and Hue on first.</p>
+    <div id="found" style="margin-top:14px"></div>
+    <hr>
+    <label>Yamaha R-N800A IP</label><input id="s-yamaha" placeholder="192.168.1.191">
+    <label>Hue Bridge IP</label><input id="s-hue" placeholder="192.168.1.165">
+    <label>Hue application key</label><input id="s-huekey">
+    <label>Bose Lifestyle 650 IP</label><input id="s-bose">
+    <label>Samsung TV IP</label><input id="s-tv" placeholder="192.168.1.145">
+    <label>Samsung TV MAC</label><input id="s-tvmac">
+    <label>PS5 IP</label><input id="s-ps5ip" placeholder="192.168.1.86">
+    <label>PS5 MAC</label><input id="s-ps5mac" placeholder="2C:9E:00:B7:B6:A0">
+    <label>Qolsys IQ Panel IP</label><input id="s-qolsys" placeholder="192.168.1.78">
+    <label>Qolsys MAC</label><input id="s-qolsysmac" placeholder="3C:31:78:9D:F2:08">
+    <label>Xbox MAC</label><input id="s-xboxmac">
+    <label>Shield MAC</label><input id="s-shieldmac">
+    <hr>
+    <label>Honeywell Total Connect email</label><input id="s-honeywellUser" placeholder="you@email.com" autocomplete="username">
+    <label>Honeywell password</label><input id="s-honeywellPass" type="password" autocomplete="current-password">
+    <button class="btn gold wide" id="th-login" style="margin-top:12px">Connect thermostat</button>
+    <p class="hint">RTH9585WF. Stays on this PC only. Same login as the Honeywell Home / Total Connect Comfort app.</p>
+    <hr>
+    <button class="btn gold wide" id="save">Save</button>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+(function(){
+'use strict';
+if(typeof Promise==='undefined'){window.Promise=function(fn){var s='p',v,cb=[],eb=[];function res(x){if(s!=='p')return;s='f';v=x;for(var i=0;i<cb.length;i++)try{cb[i](v)}catch(e){}}function rej(x){if(s!=='p')return;s='r';v=x;for(var i=0;i<eb.length;i++)try{eb[i](v)}catch(e){}}this.then=function(ok,no){if(s==='f'){if(ok)ok(v)}else if(s==='r'){if(no)no(v)}else{if(ok)cb.push(ok);if(no)eb.push(no)}return this};this.catch=function(no){return this.then(null,no)};try{fn(res,rej)}catch(e){rej(e)}}}
+if(typeof fetch==='undefined'){window.fetch=function(url,opts){opts=opts||{};return new Promise(function(ok,no){var x=new XMLHttpRequest();x.open(opts.method||'GET',url,true);var h=opts.headers||{};for(var k in h)if(h.hasOwnProperty(k))x.setRequestHeader(k,h[k]);x.onreadystatechange=function(){if(x.readyState!==4)return;ok({ok:x.status>=200&&x.status<300,status:x.status,json:function(){return new Promise(function(o){try{o(JSON.parse(x.responseText||'{}'))}catch(e){o({})}})},text:function(){return new Promise(function(o){o(x.responseText)})}})};x.onerror=function(){no(new Error('network'))};x.send(opts.body||null)})}}
+var DEFAULTS={yamaha:'192.168.1.191',hue:'192.168.1.165',huekey:'',bose:'',tv:'192.168.1.145',tvmac:'',tvtoken:'',ps5ip:'192.168.1.86',ps5mac:'2C:9E:00:B7:B6:A0',xboxmac:'B4:AE:2B:19:8F:6B',shieldmac:'',qolsys:'192.168.1.78',qolsysmac:'3C:31:78:9D:F2:08',honeywellUser:''};
+var CFG={}, HUE_ROOMS=[], RELAY=false, YMAX=161, THERMO=null;
+var YINPUTS=[['optical2','Optical 2 (TV)'],['optical1','Optical 1'],['phono','Phono'],['server','Server / NAS'],['net_radio','Net radio'],['spotify','Spotify'],['airplay','AirPlay'],['bluetooth','Bluetooth'],['line1','Line 1'],['line2','Line 2'],['coaxial','Coaxial'],['tuner','Tuner']];
+function $(s){return document.querySelector(s)}
+function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s))}
+function esc(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'<','>':'>','&':'&','"':'"'}[c]})}
+var toastTimer;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.classList.remove('on')},2800)}
+function api(path,opts){return fetch(path,opts).then(function(r){return r.json()}).catch(function(e){return {ok:false,error:String(e)}})}
+function dev(url,opts){opts=opts||{};var o={method:opts.method||'GET',headers:opts.headers||{}};if(opts.body){o.body=opts.body;o.headers['content-type']=opts.ctype||'application/json'}return api('/api/proxy?url='+encodeURIComponent(url),o)}
+function yamOk(r){if(!r||r.ok===false)return false;try{var j=JSON.parse(r.body||'{}');if(j.response_code!=null)return Number(j.response_code)===0}catch(e){}return !!r.ok}
+function yam(cmd){if(!CFG.yamaha)return Promise.resolve({ok:false});return dev('http://'+CFG.yamaha+'/YamahaExtendedControl/v1/'+cmd).then(function(r){return {ok:yamOk(r),body:r&&r.body}})}
+function loadCfg(){try{CFG=JSON.parse(localStorage.getItem('audiopheliac')||'{}')}catch(e){CFG={}}return api('/api/state').then(function(s){var src=(s&&Object.keys(s).length)?s:DEFAULTS;Object.keys(DEFAULTS).forEach(function(k){if(!CFG[k])CFG[k]=src[k]||DEFAULTS[k]});fillForm()})}
+function saveCfg(){localStorage.setItem('audiopheliac',JSON.stringify(CFG));api('/api/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(CFG)})}
+function fillForm(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac','qolsys','qolsysmac','honeywellUser'].forEach(function(k){var el=$('#s-'+k);if(el)el.value=CFG[k]||''});
+  $('#m-yamaha').textContent=CFG.yamaha||'not configured';
+  $('#m-bose').textContent=CFG.bose?CFG.bose:'not configured — scan with the console on';
+  $('#m-tv').textContent=CFG.tv||'not configured';
+  $('#m-hue').textContent=CFG.hue?(CFG.huekey?CFG.hue+' — linked':CFG.hue+' — press the bridge button'):'not configured';
+  $('#hue-setup').style.display=(CFG.hue&&!CFG.huekey)?'block':'none';
+  var lab=$('#vol-lab');if(lab)lab.textContent=CFG.bose?'Bose surround':'Yamaha';
+}
+function health(){api('/api/health').then(function(h){var s=$('#status');if(h&&h.ok){s.textContent='live';s.className='ok';RELAY=true}else{s.textContent='preview';s.className='bad';RELAY=false}})}
+function scan(){var b=$('#scan');b.disabled=true;b.textContent='Scanning…';api('/api/scan?force=1').then(function(r){b.disabled=false;b.textContent='Find my devices';var list=(r&&r.devices)||[];var box=$('#found');box.innerHTML='';if(!list.length){box.innerHTML='<p class="hint">Nothing answered. Known IPs stay: Hue .165, Yamaha .191, TV .145.</p>';return}list.forEach(function(d){if(d.type==='yamaha')CFG.yamaha=d.ip;if(d.type==='hue')CFG.hue=d.ip;if(d.type==='bose')CFG.bose=d.ip;if(d.type==='samsung'){CFG.tv=d.ip;if(d.mac)CFG.tvmac=d.mac}var el=document.createElement('div');el.className='dev';el.innerHTML='<div class="n"><b>'+esc(d.name)+'</b><span>'+esc(d.ip+' '+(d.detail||''))+'</span></div><div class="pill">'+esc(d.type)+'</div>';box.appendChild(el)});saveCfg();fillForm();hueLoad();toast('Found '+list.length)})}
+function thermoPaint(t){
+  THERMO=t;
+  var room=(t&&t.indoor!=null)?Math.round(t.indoor):'—';
+  var setpt=t&&(t.mode==='heat'?t.heat:t.cool);
+  var setStr=(setpt!=null)?('Set to '+Math.round(setpt)+'°'):'Setpoint —';
+  var modeStr=(t&&t.ok)?((t.mode||'')+' · fan '+(t.fan||'auto')+(t.outdoor!=null?(' · outside '+Math.round(t.outdoor)+'°'):'')):(t&&t.error?t.error:'Sign in under Setup');
+  ['th-temp','th-temp2'].forEach(function(id){var el=$('#'+id);if(el)el.innerHTML=room+'<small>°</small>'});
+  ['th-set','th-set2'].forEach(function(id){var el=$('#'+id);if(el)el.textContent=setStr});
+  ['th-mode','th-mode2'].forEach(function(id){var el=$('#'+id);if(el)el.textContent=modeStr});
+  $$('[data-thmode]').forEach(function(b){b.classList.toggle('on',t&&t.mode===b.dataset.thmode)});
+  $$('[data-thfan]').forEach(function(b){b.classList.toggle('on',t&&t.fan===b.dataset.thfan)});
+}
+function thermoLoad(){return api('/api/thermo/status').then(function(t){thermoPaint(t);return t})}
+function thermoSet(body){return api('/api/thermo/set',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(t){thermoPaint(t);if(t&&t.ok)toast('Climate updated');else toast((t&&t.error)||'Thermostat did not change');return t})}
+function yamStatus(){if(!CFG.yamaha)return;yam('main/getStatus').then(function(r){if(!r.ok||!r.body)return;try{var j=JSON.parse(r.body);if(j.max_volume){YMAX=j.max_volume;$('#yvol').max=YMAX}if(j.volume!=null){$('#yvol').value=j.volume;$('#yvol-num').textContent=Math.round(j.volume/YMAX*100)+'%'}var on=j.power==='on';var pb=$('#btn-power');if(pb){pb.classList.toggle('off',!on);$('#power-state').textContent=on?'On':'Standby'}var ms=$('#mute-state');if(ms){ms.textContent=j.mute?'On':'Off';ms.style.color=j.mute?'#E24B6A':'var(--paper)'}var line='YXC · '+(CFG.yamaha||'')+' · '+(j.input||'')+(j.mute?' · muted':'');$('#m-yamaha').textContent=line;$('#now-meta').textContent=line;$$('#yinputs .src-btn').forEach(function(b){b.classList.toggle('on',b.dataset.yin===j.input)})}catch(e){}})}
+function yamPlay(){if(!CFG.yamaha)return;yam('netusb/getPlayInfo').then(function(r){if(!r.body)return;try{var j=JSON.parse(r.body);$('#now-track').textContent=j.track||j.album||'Nothing playing yet.';$('#now-artist').textContent=j.artist||'';$('#now-album').textContent=j.album||''}catch(e){}})}
+function yamPresets(){if(!CFG.yamaha)return;yam('netusb/getPresetInfo').then(function(r){var box=$('#ypresets');if(!box)return;var html='';try{var j=JSON.parse(r.body||'{}');var list=j.preset_info||[];if(!list.length){for(var i=1;i<=8;i++)html+='<button class="preset" data-yp="'+i+'"><span class="preset-num">P'+i+'</span>—</button>'}else list.forEach(function(p,i){html+='<button class="preset" data-yp="'+(i+1)+'"><span class="preset-num">P'+(i+1)+'</span>'+esc((p.text||'—').slice(0,18))+'</button>'})}catch(e){for(var n=1;n<=8;n++)html+='<button class="preset" data-yp="'+n+'"><span class="preset-num">P'+n+'</span>—</button>'}box.innerHTML=html})}
+function bosePower(on){
+  if(!CFG.bose){toast('Bose not found — scan with the Lifestyle on');return Promise.resolve({ok:false})}
+  toast(on?'Turning Lifestyle on…':'Turning Lifestyle off…');
+  return api('/api/bose/power',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.bose,on:on})}).then(function(r){
+    if(r&&r.ok){
+      $('#m-bose').textContent='Lifestyle '+(r.on?'on':'standby')+(r.source?(' · '+r.source):'');
+      toast(r.on?'Lifestyle on':'Lifestyle off');
+    }else toast((r&&r.error)||'Lifestyle did not change');
+    return r;
+  });
+}
+function bose(key){if(!CFG.bose){toast('Bose not found — scan with it on');return Promise.resolve({ok:false})}return api('/api/bose/key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.bose,key:key})})}
+function houseTarget(){return CFG.bose?'bose':'yamaha'}
+function houseVol(dir){
+  var t=houseTarget();
+  $('#vol-lab').textContent=t==='bose'?'Bose surround':'Yamaha';
+  if(t==='bose'){
+    var k=dir===0?'MUTE':(dir>0?'VOLUME_UP':'VOLUME_DOWN');
+    return bose(k).then(function(r){toast(r&&r.ok!==false?(dir===0?'Mute':'Volume'):'Bose did not respond');return r});
+  }
+  if(dir===0)return yam('main/setMute?enable=toggle').then(function(r){toast(r.ok?'Mute':'Yamaha did not respond');setTimeout(yamStatus,300);return r});
+  return yam('main/setVolume?volume='+(dir>0?'up':'down')).then(function(r){toast(r.ok?'Volume':'Yamaha did not respond');setTimeout(yamStatus,300);return r});
+}
+function hueLink(){if(!CFG.hue){toast('Scan first');return}dev('https://'+CFG.hue+'/api',{method:'POST',body:JSON.stringify({devicetype:'audiopheliac#family_remote',generateclientkey:true})}).then(function(r){var j;try{j=JSON.parse(r.body)}catch(e){toast('Bridge did not answer');return}var first=j&&j[0];if(first&&first.success&&first.success.username){CFG.huekey=first.success.username;saveCfg();fillForm();hueLoad();toast('Hue linked')}else toast('Press the bridge button, then tap again')})}
+function hueGet(p){return dev('https://'+CFG.hue+'/clip/v2/resource/'+p,{headers:{'hue-application-key':CFG.huekey}})}
+function huePut(p,body){return dev('https://'+CFG.hue+'/clip/v2/resource/'+p,{method:'PUT',headers:{'hue-application-key':CFG.huekey},body:JSON.stringify(body)})}
+function hueLoad(){var box=$('#hue-rooms');box.innerHTML='';if(!CFG.hue||!CFG.huekey)return Promise.resolve();return hueGet('room').then(function(r){var j;try{j=JSON.parse(r.body)}catch(e){return}var rooms=(j&&j.data)||[];HUE_ROOMS=[];rooms.forEach(function(rm){var gl=(rm.services||[]).filter(function(s){return s.rtype==='grouped_light'})[0];if(!gl)return;var name=(rm.metadata&&rm.metadata.name)||'Room';HUE_ROOMS.push({id:gl.rid,name:name});var d=document.createElement('div');d.className='card';d.style.margin='0 0 11px';d.innerHTML='<h2 style="font-size:16px">'+esc(name)+'</h2><div class="row"><button class="btn sm" data-hon="'+gl.rid+'">On</button><button class="btn sm" data-hoff="'+gl.rid+'">Off</button></div><input class="slider" type="range" min="1" max="100" value="60" data-hdim="'+gl.rid+'">';box.appendChild(d)});if(!HUE_ROOMS.length)box.innerHTML='<p class="hint">Linked, but no rooms came back.</p>'})}
+function hueAll(on,bri){var go=function(){if(!CFG.huekey)return Promise.resolve({ok:false});return Promise.all(HUE_ROOMS.map(function(r){var b={on:{on:on}};if(on&&bri)b.dimming={brightness:bri};return huePut('grouped_light/'+r.id,b)})).then(function(){return {ok:true}})};if(!HUE_ROOMS.length)return hueLoad().then(go);return go()}
+function tvKey(key){if(!CFG.tv){toast('TV not configured');return Promise.resolve({ok:false})}return api('/api/samsung/key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.tv,key:key,token:CFG.tvtoken||''})}).then(function(r){if(r&&r.token){CFG.tvtoken=r.token;saveCfg()}if(r&&!r.ok)toast(r.error||'TV did not respond');return r})}
+function tvOnly(on){
+  if(!CFG.tv){toast('TV not configured');return Promise.resolve({ok:false})}
+  toast(on?'Turning TV on…':'Turning TV off…');
+  return api('/api/samsung/power',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.tv,on:!!on,token:CFG.tvtoken||'',mac:CFG.tvmac||''})}).then(function(r){
+    if(r&&r.token){CFG.tvtoken=r.token;saveCfg()}
+    if(r&&r.ok)toast(on?'TV on':'TV off');
+    else toast((r&&r.error)||'TV did not respond');
+    return r;
+  });
+}
+function wake(which){var mac=CFG[which+'mac'];if(!mac){toast('No MAC for '+which);return Promise.resolve({ok:false})}return api('/api/wol',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mac:mac})}).then(function(r){toast(r.ok?('Wake sent to '+which):('Wake failed'));return r})}
+function runScene(name){var steps=[];if(name==='movie')steps=[['Lights dim',function(){return hueAll(true,12)}],['TV',function(){return CFG.tvmac?wake('tv'):tvKey('KEY_POWER')}],['Yamaha on',function(){return yam('main/setPower?power=on')}],['Optical 2',function(){return yam('main/setInput?input=optical2')}]];
+else if(name==='vinyl')steps=[['Lights',function(){return hueAll(true,45)}],['Yamaha on',function(){return yam('main/setPower?power=on')}],['Phono',function(){return yam('main/setInput?input=phono')}]];
+else if(name==='music')steps=[['Yamaha on',function(){return yam('main/setPower?power=on')}],['Server',function(){return yam('main/setInput?input=server')}]];
+else if(name==='ps5')steps=[['Lights',function(){return hueAll(true,30)}],['Wake PS5',function(){return wake('ps5')}],['TV',function(){return CFG.tvmac?wake('tv'):tvKey('KEY_POWER')}],['Yamaha on',function(){return yam('main/setPower?power=on')}]];
+else if(name==='xbox')steps=[['Lights',function(){return hueAll(true,30)}],['Wake Xbox',function(){return wake('xbox')}],['TV',function(){return CFG.tvmac?wake('tv'):tvKey('KEY_POWER')}],['Yamaha on',function(){return yam('main/setPower?power=on')}]];
+else if(name==='lights')steps=[['Lights',function(){return hueAll(true,70)}]];
+else if(name==='off')steps=[['Yamaha standby',function(){return yam('main/setPower?power=standby')}],['Bose',function(){return CFG.bose?bose('POWER'):Promise.resolve({ok:true})}],['TV off',function(){return tvOnly(false)}],['Lights off',function(){return hueAll(false)}]];
+toast(name+' running…');var failed=[];var chain=Promise.resolve();steps.forEach(function(st){chain=chain.then(function(){return Promise.resolve(st[1]()).then(function(r){if(r&&r.ok===false)failed.push(st[0])}).catch(function(){failed.push(st[0])})})});chain.then(function(){setTimeout(yamStatus,400);toast(failed.length?(name+' failed: '+failed.join(', ')):(name+' ready'))})}
+$$('.tab').forEach(function(t){t.addEventListener('click',function(){$$('.tab').forEach(function(x){x.classList.remove('on')});$$('.page').forEach(function(x){x.classList.remove('on')});t.classList.add('on');$('#p-'+t.dataset.p).classList.add('on');if(t.dataset.p==='audio'){yamStatus();yamPlay();yamPresets()}if(t.dataset.p==='lights')hueLoad();if(t.dataset.p==='climate')thermoLoad()})});
+$$('.scene').forEach(function(s){s.addEventListener('click',function(){runScene(s.dataset.s)})});
+$('#gear').addEventListener('click',function(){$('#drawer').classList.add('on')});
+$('#close').addEventListener('click',function(){$('#drawer').classList.remove('on')});
+$('#scan').addEventListener('click',scan);
+$('#vol-up').addEventListener('click',function(){houseVol(1)});
+$('#vol-down').addEventListener('click',function(){houseVol(-1)});
+$('#vol-mute').addEventListener('click',function(){houseVol(0)});
+$('#bose-on').addEventListener('click',function(){bosePower(true)});
+$('#bose-off').addEventListener('click',function(){bosePower(false)});
+$('#tv-find').addEventListener('click',function(){
+  $('#tv-find').disabled=true;$('#tv-find').textContent='Hunting the LAN…';
+  api('/api/samsung/find').then(function(r){
+    $('#tv-find').disabled=false;$('#tv-find').textContent='Find TV';
+    if(r&&r.ok){
+      CFG.tv=r.ip;if(r.mac)CFG.tvmac=r.mac;saveCfg();fillForm();
+      $('#m-tv').textContent=(r.model||'Samsung')+' · '+r.ip+(r.mac?(' · '+r.mac):'');
+      toast('Family Room TV '+r.ip+(r.model?(' · '+r.model):''));
+    }else toast((r&&r.error)||'TV not on the LAN');
+  });
+});
+$('#tv-pair').addEventListener('click',function(){
+  if(!CFG.tv){toast('TV IP missing');return}
+  $('#tv-pair').disabled=true;$('#tv-pair').textContent='Watch the TV 50s…';
+  api('/api/samsung/info?ip='+encodeURIComponent(CFG.tv)).then(function(info){
+    if(info&&info.ok){$('#m-tv').textContent=info.model+' · '+info.ip+' · on'}
+    else{$('#m-tv').textContent=(info&&info.error)||'TV not answering'}
+  });
+  api('/api/samsung/pair',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.tv,token:CFG.tvtoken||''})}).then(function(r){
+    $('#tv-pair').disabled=false;$('#tv-pair').textContent='Pair TV';
+    if(r&&r.token){CFG.tvtoken=r.token;saveCfg()}
+    toast(r&&r.ok?'TV paired':((r&&r.error)||'Pair failed'));
+  });
+});
+$('#hue-link').addEventListener('click',hueLink);
+$('#th-login').addEventListener('click',function(){
+  var user=($('#s-honeywellUser').value||'').trim();
+  var pass=$('#s-honeywellPass').value||'';
+  if(!user||!pass){toast('Enter Honeywell email and password');return}
+  $('#th-login').disabled=true;$('#th-login').textContent='Connecting…';
+  api('/api/thermo/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({user:user,pass:pass})}).then(function(r){
+    $('#th-login').disabled=false;$('#th-login').textContent='Connect thermostat';
+    if(r&&r.ok){CFG.honeywellUser=user;saveCfg();$('#drawer').classList.remove('on');toast('Thermostat connected');thermoLoad()}
+    else toast((r&&r.error)||'Honeywell sign-in failed');
+  });
+});
+['th-up','th-up2'].forEach(function(id){var el=$('#'+id);if(el)el.addEventListener('click',function(){thermoSet({delta:1})})});
+['th-down','th-down2'].forEach(function(id){var el=$('#'+id);if(el)el.addEventListener('click',function(){thermoSet({delta:-1})})});
+$('#save').addEventListener('click',function(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac','qolsys','qolsysmac'].forEach(function(k){CFG[k]=($('#s-'+k).value||'').trim()});saveCfg();fillForm();hueLoad();$('#drawer').classList.remove('on');toast('Saved')});
+document.addEventListener('click',function(e){var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.y){var m={power:'main/setPower?power=toggle',mute:'main/setMute?enable=toggle',vup:'main/setVolume?volume=up',vdown:'main/setVolume?volume=down'}[t.dataset.y];yam(m).then(function(r){toast(r.ok?'Yamaha ok':'Yamaha unreachable');setTimeout(yamStatus,400)})}
+  if(t.dataset.yin)yam('main/setInput?input='+t.dataset.yin).then(function(r){toast(r.ok?('Source '+t.dataset.yin):'Source failed');setTimeout(yamStatus,400)});
+  if(t.dataset.yp)yam('netusb/recallPreset?zone=main&num='+t.dataset.yp).then(function(r){toast(r.ok?('Preset '+t.dataset.yp):'Preset failed');setTimeout(yamPlay,700)});
+  if(t.dataset.tr){var pb=t.dataset.tr==='play_pause'?'play_pause':t.dataset.tr;yam('netusb/setPlayback?playback='+pb).then(function(){setTimeout(yamPlay,400)})}
+  if(t.dataset.b)bose(t.dataset.b).then(function(r){toast(r&&r.ok!==false?'Bose ok':'Bose unreachable')});
+  if(t.dataset.tv)tvOnly(t.dataset.tv==='on');
+  if(t.dataset.t){if(t.dataset.t==='wake')wake('tv');else tvKey(t.dataset.t).then(function(r){if(r&&r.ok)toast('TV ok')})}
+  if(t.dataset.w)wake(t.dataset.w);
+  if(t.dataset.hon)huePut('grouped_light/'+t.dataset.hon,{on:{on:true}});
+  if(t.dataset.hoff)huePut('grouped_light/'+t.dataset.hoff,{on:{on:false}});
+  if(t.dataset.thmode)thermoSet({mode:t.dataset.thmode});
+  if(t.dataset.thfan)thermoSet({fan:t.dataset.thfan});
+});
+document.addEventListener('change',function(e){var el=e.target;if(el.id==='yvol'){yam('main/setVolume?volume='+el.value);$('#yvol-num').textContent=Math.round(el.value/YMAX*100)+'%'}if(el.dataset&&el.dataset.hdim)huePut('grouped_light/'+el.dataset.hdim,{on:{on:true},dimming:{brightness:Number(el.value)}})});
+$('#yinputs').innerHTML=YINPUTS.map(function(p){return '<button class="src-btn" data-yin="'+p[0]+'">'+p[1]+'</button>'}).join('');
+$('#ypresets').innerHTML=[1,2,3,4,5,6,7,8].map(function(n){return '<button class="preset" data-yp="'+n+'"><span class="preset-num">P'+n+'</span>—</button>'}).join('');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+health();setInterval(health,15000);
+loadCfg().then(function(){yamStatus();hueLoad();thermoLoad()});
+setInterval(function(){if($('#p-audio').classList.contains('on')){yamStatus();yamPlay()}if($('#p-climate').classList.contains('on')||$('#p-scenes').classList.contains('on'))thermoLoad()},8000);
+})();
+</script>
+</body>
+</html>
