@@ -307,6 +307,84 @@ async function samsungIsOn(ip) {
   return { on: false };
 }
 
+/* ---------------- Bose Lifestyle 650 / SoundTouch ---------------- */
+
+function boseXml(ip, path, xml) {
+  return req(`http://${ip}:8090${path}`, {
+    method: xml ? 'POST' : 'GET',
+    body: xml || null,
+    headers: xml ? { 'Content-Type': 'text/xml' } : {},
+    timeout: 6000,
+  });
+}
+
+function parseBoseNow(xml) {
+  const src = ((xml || '').match(/\bsource="([^"]+)"/) || (xml || '').match(/<source>([^<]+)<\/source>/) || [])[1] || '';
+  const account = ((xml || '').match(/\bsourceAccount="([^"]*)"/) || [])[1] || '';
+  const standby = !src || /^STANDBY$/i.test(src);
+  return { source: src, account, standby, on: !standby };
+}
+
+async function boseKeyRaw(ip, key) {
+  const press = `<key state="press" sender="Gabbo">${key}</key>`;
+  const release = `<key state="release" sender="Gabbo">${key}</key>`;
+  const a = await boseXml(ip, '/key', press);
+  await sleep(400);
+  const b = await boseXml(ip, '/key', release);
+  return { ok: !!(a.ok || b.ok) };
+}
+
+async function boseStatus(ip) {
+  const r = await boseXml(ip, '/now_playing');
+  if (!r.ok) return { ok: false, error: 'Lifestyle did not answer on ' + ip };
+  return { ok: true, ...parseBoseNow(r.body) };
+}
+
+async function bosePower({ ip, on } = {}) {
+  const st = loadState();
+  ip = ip || st.bose;
+  if (!ip) return { ok: false, error: 'Bose IP missing. Scan with the Lifestyle on.' };
+  const before = await boseStatus(ip);
+  if (!before.ok) return before;
+  const wantOn = on == null ? !before.on : !!on;
+  if (wantOn === before.on) return { ok: true, already: true, on: before.on, source: before.source };
+
+  await boseKeyRaw(ip, 'POWER');
+  await sleep(1600);
+  let after = await boseStatus(ip);
+  if (after.ok && after.on === wantOn) return { ok: true, on: after.on, source: after.source, via: 'POWER' };
+
+  if (!wantOn) {
+    await boseXml(ip, '/select', '<ContentItem source="STANDBY"></ContentItem>');
+    await sleep(1400);
+    after = await boseStatus(ip);
+    if (after.ok && !after.on) return { ok: true, on: false, via: 'select-STANDBY' };
+    await boseKeyRaw(ip, 'POWER');
+    await sleep(1400);
+    after = await boseStatus(ip);
+  } else {
+    await boseXml(ip, '/select', '<ContentItem source="PRODUCT" sourceAccount="TV"></ContentItem>');
+    await sleep(1600);
+    after = await boseStatus(ip);
+    if (after.ok && after.on) return { ok: true, on: true, source: after.source, via: 'PRODUCT-TV' };
+    await boseXml(ip, '/select', '<ContentItem source="PRODUCT"></ContentItem>');
+    await sleep(1400);
+    after = await boseStatus(ip);
+    if (after.ok && after.on) return { ok: true, on: true, source: after.source, via: 'PRODUCT' };
+    await boseKeyRaw(ip, 'POWER');
+    await sleep(1400);
+    after = await boseStatus(ip);
+  }
+
+  const good = after.ok && after.on === wantOn;
+  return {
+    ok: good,
+    on: after.on,
+    source: after.source,
+    error: good ? undefined : ('Lifestyle stayed ' + (after.on ? 'on' : 'off') + (after.source ? (' (' + after.source + ')') : '') + '.'),
+  };
+}
+
 function persistSamsung(info) {
   const st = loadState();
   if (info.ip) st.tv = info.ip;
@@ -785,6 +863,21 @@ const server = http.createServer(async (rq, rs) => {
     }
     if (p === '/api/samsung/find') {
       return json(rs, 200, await samsungFind());
+    }
+    if (p === '/api/bose/status') {
+      const ip = url.searchParams.get('ip') || loadState().bose;
+      if (!ip) return json(rs, 400, { ok: false, error: 'bose ip missing' });
+      return json(rs, 200, await boseStatus(ip));
+    }
+    if (p === '/api/bose/power' && rq.method === 'POST') {
+      return json(rs, 200, await bosePower(await readBody(rq)));
+    }
+    if (p === '/api/bose/key' && rq.method === 'POST') {
+      const b = await readBody(rq);
+      const ip = b.ip || loadState().bose;
+      if (!ip || !b.key) return json(rs, 400, { ok: false, error: 'ip and key required' });
+      const out = await boseKeyRaw(ip, b.key);
+      return json(rs, 200, out);
     }
 
     return serveStatic(rq, rs);

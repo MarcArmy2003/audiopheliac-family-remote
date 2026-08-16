@@ -261,7 +261,10 @@ hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
       <h2>Bose Lifestyle 650</h2>
       <div class="meta" id="m-bose">SoundTouch on :8090 if the console answers</div>
       <div class="row">
-        <button class="btn gold" data-b="POWER">Power</button>
+        <button class="btn gold" id="bose-on">Lifestyle on</button>
+        <button class="btn" id="bose-off">Lifestyle off</button>
+      </div>
+      <div class="row" style="margin-top:9px">
         <button class="btn" data-b="MUTE">Mute</button>
         <button class="btn sm" data-b="VOLUME_DOWN">Vol −</button>
         <button class="btn sm" data-b="VOLUME_UP">Vol +</button>
@@ -417,7 +420,18 @@ function thermoSet(body){return api('/api/thermo/set',{method:'POST',headers:{'c
 function yamStatus(){if(!CFG.yamaha)return;yam('main/getStatus').then(function(r){if(!r.ok||!r.body)return;try{var j=JSON.parse(r.body);if(j.max_volume){YMAX=j.max_volume;$('#yvol').max=YMAX}if(j.volume!=null){$('#yvol').value=j.volume;$('#yvol-num').textContent=Math.round(j.volume/YMAX*100)+'%'}var on=j.power==='on';var pb=$('#btn-power');if(pb){pb.classList.toggle('off',!on);$('#power-state').textContent=on?'On':'Standby'}var ms=$('#mute-state');if(ms){ms.textContent=j.mute?'On':'Off';ms.style.color=j.mute?'#E24B6A':'var(--paper)'}var line='YXC · '+(CFG.yamaha||'')+' · '+(j.input||'')+(j.mute?' · muted':'');$('#m-yamaha').textContent=line;$('#now-meta').textContent=line;$$('#yinputs .src-btn').forEach(function(b){b.classList.toggle('on',b.dataset.yin===j.input)})}catch(e){}})}
 function yamPlay(){if(!CFG.yamaha)return;yam('netusb/getPlayInfo').then(function(r){if(!r.body)return;try{var j=JSON.parse(r.body);$('#now-track').textContent=j.track||j.album||'Nothing playing yet.';$('#now-artist').textContent=j.artist||'';$('#now-album').textContent=j.album||''}catch(e){}})}
 function yamPresets(){if(!CFG.yamaha)return;yam('netusb/getPresetInfo').then(function(r){var box=$('#ypresets');if(!box)return;var html='';try{var j=JSON.parse(r.body||'{}');var list=j.preset_info||[];if(!list.length){for(var i=1;i<=8;i++)html+='<button class="preset" data-yp="'+i+'"><span class="preset-num">P'+i+'</span>—</button>'}else list.forEach(function(p,i){html+='<button class="preset" data-yp="'+(i+1)+'"><span class="preset-num">P'+(i+1)+'</span>'+esc((p.text||'—').slice(0,18))+'</button>'})}catch(e){for(var n=1;n<=8;n++)html+='<button class="preset" data-yp="'+n+'"><span class="preset-num">P'+n+'</span>—</button>'}box.innerHTML=html})}
-function bose(key){if(!CFG.bose){toast('Bose not found — scan with it on');return Promise.resolve({ok:false})}var url='http://'+CFG.bose+':8090/key';return dev(url,{method:'POST',ctype:'application/xml',body:'<key state="press" sender="Gabbo">'+key+'</key>'}).then(function(){return dev(url,{method:'POST',ctype:'application/xml',body:'<key state="release" sender="Gabbo">'+key+'</key>'})})}
+function bosePower(on){
+  if(!CFG.bose){toast('Bose not found — scan with the Lifestyle on');return Promise.resolve({ok:false})}
+  toast(on?'Turning Lifestyle on…':'Turning Lifestyle off…');
+  return api('/api/bose/power',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.bose,on:on})}).then(function(r){
+    if(r&&r.ok){
+      $('#m-bose').textContent='Lifestyle '+(r.on?'on':'standby')+(r.source?(' · '+r.source):'');
+      toast(r.on?'Lifestyle on':'Lifestyle off');
+    }else toast((r&&r.error)||'Lifestyle did not change');
+    return r;
+  });
+}
+function bose(key){if(!CFG.bose){toast('Bose not found — scan with it on');return Promise.resolve({ok:false})}return api('/api/bose/key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ip:CFG.bose,key:key})})}
 function houseTarget(){return CFG.bose?'bose':'yamaha'}
 function houseVol(dir){
   var t=houseTarget();
@@ -462,6 +476,8 @@ $('#scan').addEventListener('click',scan);
 $('#vol-up').addEventListener('click',function(){houseVol(1)});
 $('#vol-down').addEventListener('click',function(){houseVol(-1)});
 $('#vol-mute').addEventListener('click',function(){houseVol(0)});
+$('#bose-on').addEventListener('click',function(){bosePower(true)});
+$('#bose-off').addEventListener('click',function(){bosePower(false)});
 $('#tv-find').addEventListener('click',function(){
   $('#tv-find').disabled=true;$('#tv-find').textContent='Hunting the LAN…';
   api('/api/samsung/find').then(function(r){
