@@ -356,6 +356,8 @@ hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
     <label>Samsung TV MAC</label><input id="s-tvmac">
     <label>PS5 IP</label><input id="s-ps5ip" placeholder="192.168.1.86">
     <label>PS5 MAC</label><input id="s-ps5mac" placeholder="2C:9E:00:B7:B6:A0">
+    <label>Qolsys IQ Panel IP</label><input id="s-qolsys" placeholder="192.168.1.78">
+    <label>Qolsys MAC</label><input id="s-qolsysmac" placeholder="3C:31:78:9D:F2:08">
     <label>Xbox MAC</label><input id="s-xboxmac">
     <label>Shield MAC</label><input id="s-shieldmac">
     <hr>
@@ -373,7 +375,7 @@ hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
 'use strict';
 if(typeof Promise==='undefined'){window.Promise=function(fn){var s='p',v,cb=[],eb=[];function res(x){if(s!=='p')return;s='f';v=x;for(var i=0;i<cb.length;i++)try{cb[i](v)}catch(e){}}function rej(x){if(s!=='p')return;s='r';v=x;for(var i=0;i<eb.length;i++)try{eb[i](v)}catch(e){}}this.then=function(ok,no){if(s==='f'){if(ok)ok(v)}else if(s==='r'){if(no)no(v)}else{if(ok)cb.push(ok);if(no)eb.push(no)}return this};this.catch=function(no){return this.then(null,no)};try{fn(res,rej)}catch(e){rej(e)}}}
 if(typeof fetch==='undefined'){window.fetch=function(url,opts){opts=opts||{};return new Promise(function(ok,no){var x=new XMLHttpRequest();x.open(opts.method||'GET',url,true);var h=opts.headers||{};for(var k in h)if(h.hasOwnProperty(k))x.setRequestHeader(k,h[k]);x.onreadystatechange=function(){if(x.readyState!==4)return;ok({ok:x.status>=200&&x.status<300,status:x.status,json:function(){return new Promise(function(o){try{o(JSON.parse(x.responseText||'{}'))}catch(e){o({})}})},text:function(){return new Promise(function(o){o(x.responseText)})}})};x.onerror=function(){no(new Error('network'))};x.send(opts.body||null)})}}
-var DEFAULTS={yamaha:'192.168.1.191',hue:'192.168.1.165',huekey:'',bose:'',tv:'192.168.1.145',tvmac:'',tvtoken:'',ps5ip:'192.168.1.86',ps5mac:'2C:9E:00:B7:B6:A0',xboxmac:'B4:AE:2B:19:8F:6B',shieldmac:'',honeywellUser:''};
+var DEFAULTS={yamaha:'192.168.1.191',hue:'192.168.1.165',huekey:'',bose:'',tv:'192.168.1.145',tvmac:'',tvtoken:'',ps5ip:'192.168.1.86',ps5mac:'2C:9E:00:B7:B6:A0',xboxmac:'B4:AE:2B:19:8F:6B',shieldmac:'',qolsys:'192.168.1.78',qolsysmac:'3C:31:78:9D:F2:08',honeywellUser:''};
 var CFG={}, HUE_ROOMS=[], RELAY=false, YMAX=161, THERMO=null;
 var YINPUTS=[['optical2','Optical 2 (TV)'],['optical1','Optical 1'],['phono','Phono'],['server','Server / NAS'],['net_radio','Net radio'],['spotify','Spotify'],['airplay','AirPlay'],['bluetooth','Bluetooth'],['line1','Line 1'],['line2','Line 2'],['coaxial','Coaxial'],['tuner','Tuner']];
 function $(s){return document.querySelector(s)}
@@ -387,7 +389,7 @@ function yamOk(r){if(!r||r.ok===false)return false;try{var j=JSON.parse(r.body||
 function yam(cmd){if(!CFG.yamaha)return Promise.resolve({ok:false});return dev('http://'+CFG.yamaha+'/YamahaExtendedControl/v1/'+cmd).then(function(r){return {ok:yamOk(r),body:r&&r.body}})}
 function loadCfg(){try{CFG=JSON.parse(localStorage.getItem('audiopheliac')||'{}')}catch(e){CFG={}}return api('/api/state').then(function(s){var src=(s&&Object.keys(s).length)?s:DEFAULTS;Object.keys(DEFAULTS).forEach(function(k){if(!CFG[k])CFG[k]=src[k]||DEFAULTS[k]});fillForm()})}
 function saveCfg(){localStorage.setItem('audiopheliac',JSON.stringify(CFG));api('/api/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(CFG)})}
-function fillForm(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac','honeywellUser'].forEach(function(k){var el=$('#s-'+k);if(el)el.value=CFG[k]||''});
+function fillForm(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac','qolsys','qolsysmac','honeywellUser'].forEach(function(k){var el=$('#s-'+k);if(el)el.value=CFG[k]||''});
   $('#m-yamaha').textContent=CFG.yamaha||'not configured';
   $('#m-bose').textContent=CFG.bose?CFG.bose:'not configured — scan with the console on';
   $('#m-tv').textContent=CFG.tv||'not configured';
@@ -486,7 +488,7 @@ $('#th-login').addEventListener('click',function(){
 });
 ['th-up','th-up2'].forEach(function(id){var el=$('#'+id);if(el)el.addEventListener('click',function(){thermoSet({delta:1})})});
 ['th-down','th-down2'].forEach(function(id){var el=$('#'+id);if(el)el.addEventListener('click',function(){thermoSet({delta:-1})})});
-$('#save').addEventListener('click',function(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac'].forEach(function(k){CFG[k]=($('#s-'+k).value||'').trim()});saveCfg();fillForm();hueLoad();$('#drawer').classList.remove('on');toast('Saved')});
+$('#save').addEventListener('click',function(){['yamaha','hue','huekey','bose','tv','tvmac','ps5ip','ps5mac','xboxmac','shieldmac','qolsys','qolsysmac'].forEach(function(k){CFG[k]=($('#s-'+k).value||'').trim()});saveCfg();fillForm();hueLoad();$('#drawer').classList.remove('on');toast('Saved')});
 document.addEventListener('click',function(e){var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
   if(t.dataset.y){var m={power:'main/setPower?power=toggle',mute:'main/setMute?enable=toggle',vup:'main/setVolume?volume=up',vdown:'main/setVolume?volume=down'}[t.dataset.y];yam(m).then(function(r){toast(r.ok?'Yamaha ok':'Yamaha unreachable');setTimeout(yamStatus,400)})}
   if(t.dataset.yin)yam('main/setInput?input='+t.dataset.yin).then(function(r){toast(r.ok?('Source '+t.dataset.yin):'Source failed');setTimeout(yamStatus,400)});
