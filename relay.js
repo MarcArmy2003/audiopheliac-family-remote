@@ -518,19 +518,15 @@ async function samsungPair(ip, token) {
     info = found;
   }
 
-  const names = ['Audiopheliac', 'JavaScriptRemote', 'SmartView SDK'];
-  // Hold the socket open. The Allow box only exists while this connection is alive.
-  for (const name of names) {
-    let out = await samsungKeyNamed(ip, '', token, false, 50000, name);
-    if (out.ok) {
-      persistSamsung({ ip, token: out.token, mac: info.mac });
-      return { ok: true, paired: true, ip, token: out.token, name, port: out.port, model: info.model };
-    }
-    out = await samsungKeyNamed(ip, '', token, true, 50000, name);
-    if (out.ok) {
-      persistSamsung({ ip, token: out.token, mac: info.mac });
-      return { ok: true, paired: true, ip, token: out.token, name, port: out.port, model: info.model };
-    }
+  let out = await samsungKeyNamed(ip, '', token, false, 50000, 'Audiopheliac');
+  if (out.ok) {
+    persistSamsung({ ip, token: out.token, mac: info.mac });
+    return { ok: true, paired: true, ip, token: out.token, port: out.port, model: info.model };
+  }
+  out = await samsungKeyNamed(ip, '', token, true, 35000, 'Audiopheliac');
+  if (out.ok) {
+    persistSamsung({ ip, token: out.token, mac: info.mac });
+    return { ok: true, paired: true, ip, token: out.token, port: out.port, model: info.model };
   }
   return {
     ok: false,
