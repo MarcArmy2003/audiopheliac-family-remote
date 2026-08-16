@@ -1,25 +1,32 @@
 @echo off
-title The Audiopheliac
+title The Audiopheliac - GDMARCHE
+color 0E
 cd /d "%~dp0"
+
+echo.
+echo   The Audiopheliac
+echo   This PC is GDMARCHE. Tablets talk to this computer.
+echo.
+
 where node >nul 2>nul
 if errorlevel 1 (
-  echo Node.js is not installed.
-  echo Opening https://nodejs.org — install LTS, then run GO.cmd again.
+  echo   Node.js is missing. I will open the download page.
+  echo   Install the LTS version, then double-click GO again.
+  echo.
   start https://nodejs.org
   pause
   exit /b 1
 )
-echo Starting The Audiopheliac on this PC...
-start "Audiopheliac Relay" cmd /c "title Audiopheliac Relay & node relay.js & pause"
-timeout /t 2 /nobreak >nul
-start http://127.0.0.1:8099
+
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":8099" ^| findstr "LISTENING"') do (
+  echo   Stopping the old remote on this PC...
+  taskkill /PID %%P /F >nul 2>nul
+)
+
+echo   Starting the house remote...
+echo   Leave this window open.
 echo.
-echo  This PC:   http://127.0.0.1:8099
-echo  iPhone / iPad / tablet — use Safari on this address:
-for /f "usebackq delims=" %%I in (`node -e "const os=require('os');for (const a of Object.values(os.networkInterfaces()).flat()){if(a&&!a.internal&&(a.family==='IPv4'||a.family===4)&&a.address.startsWith('192.168.')) console.log('             http://'+a.address+':8099')}"`) do echo %%I
+node heal.js
 echo.
-echo  iPhone: Safari only. Share (box+arrow) → Add to Home Screen.
-echo  Allow Windows Firewall if it pops.
-echo  Leave the "Audiopheliac Relay" window open.
-echo.
+echo   The window closed. Double-click GO on the desktop to start again.
 pause
