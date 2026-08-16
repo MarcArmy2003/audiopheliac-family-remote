@@ -179,19 +179,23 @@ async function scanNetwork(base) {
 
 /* ---------------- wake on lan ---------------- */
 
-function wol(mac, broadcast) {
+function wol(mac, broadcast, alsoIp) {
   return new Promise((resolve) => {
     const clean = String(mac).replace(/[^0-9a-fA-F]/g, '');
     if (clean.length !== 12) return resolve({ ok: false, error: 'bad mac' });
     const m = Buffer.from(clean, 'hex');
     const pkt = Buffer.concat([Buffer.alloc(6, 0xff), Buffer.concat(Array(16).fill(m))]);
     const s = dgram.createSocket('udp4');
-    const targets = [broadcast || '255.255.255.255'];
+    const targets = [broadcast || `${lanBase()}.255`, '255.255.255.255'];
+    if (alsoIp) targets.push(alsoIp);
     s.bind(() => {
       s.setBroadcast(true);
       let left = targets.length * 2;
-      const done = () => { if (--left <= 0) { s.close(); resolve({ ok: true }); } };
-      for (const t of targets) { s.send(pkt, 9, t, done); s.send(pkt, 7, t, done); }
+      const done = () => { if (--left <= 0) { try { s.close(); } catch {} resolve({ ok: true }); } };
+      for (const t of targets) {
+        try { s.send(pkt, 9, t, done); } catch { done(); }
+        try { s.send(pkt, 7, t, done); } catch { done(); }
+      }
     });
     s.on('error', (e) => { try { s.close(); } catch {} resolve({ ok: false, error: e.message }); });
   });
@@ -303,49 +307,159 @@ async function samsungIsOn(ip) {
   return { on: false };
 }
 
+function persistSamsung(info) {
+  const st = loadState();
+  if (info.ip) st.tv = info.ip;
+  if (info.mac) st.tvmac = String(info.mac).toUpperCase();
+  if (info.token) st.tvtoken = info.token;
+  saveState(st);
+  return st;
+}
+
+function parseSamsungBody(body, ip) {
+  try {
+    const j = JSON.parse(body || '{}');
+    const d = j.device || {};
+    return {
+      ok: true,
+      on: true,
+      ip,
+      model: d.modelName || d.name || j.name || 'Samsung',
+      mac: String(d.wifiMac || d.wifiMacAddress || d.mac || '').toUpperCase(),
+      tokenAuth: String(d.TokenAuthSupport || '') === 'true',
+      name: d.name || j.name || 'Samsung TV',
+    };
+  } catch {
+    return { ok: true, on: true, ip, model: 'Samsung' };
+  }
+}
+
+function tvEncode(str) {
+  const encoded = Buffer.from(String(str)).toString('base64');
+  const buf = Buffer.from(encoded);
+  const len = Buffer.alloc(2);
+  len.writeUInt16LE(buf.length, 0);
+  return Buffer.concat([len, buf]);
+}
+
+function samsungLegacy(ip, key) {
+  return new Promise((resolve) => {
+    const s = net.connect({ host: ip, port: 55000 });
+    let settled = false;
+    const fin = (v) => { if (!settled) { settled = true; try { s.destroy(); } catch {} resolve(v); } };
+    const t = setTimeout(() => fin({ ok: false, error: 'legacy port 55000 timed out' }), 4000);
+    s.on('connect', () => {
+      const payload = Buffer.concat([
+        Buffer.from([0x64, 0x00]),
+        tvEncode('10.0.0.2'),
+        tvEncode('00:00:00:00:00:00'),
+        tvEncode('Audiopheliac'),
+      ]);
+      const auth = Buffer.concat([Buffer.from([0x00]), tvEncode('iphone.iapp.samsung'), payload]);
+      s.write(auth);
+      if (key) {
+        const kpay = Buffer.concat([Buffer.from([0x00, 0x00, 0x00]), tvEncode(key)]);
+        const kp = Buffer.concat([Buffer.from([0x00, 0x00, 0x00]), Buffer.from([kpay.length & 0xff, (kpay.length >> 8) & 0xff]), kpay]);
+        setTimeout(() => s.write(kp), 200);
+      }
+      setTimeout(() => { clearTimeout(t); fin({ ok: true, via: 'legacy-55000' }); }, 700);
+    });
+    s.on('error', (e) => { clearTimeout(t); fin({ ok: false, error: e.message }); });
+  });
+}
+
 async function samsungInfo(ip) {
   const st = await samsungIsOn(ip);
-  if (!st.on) return { ok: false, on: false, error: 'TV is not answering at ' + ip + '. Confirm it is on and the IP is still 192.168.1.145.' };
-  let model = 'Samsung';
-  try {
-    const j = JSON.parse(st.body || '{}');
-    model = (j.device && (j.device.modelName || j.device.name)) || j.name || model;
-  } catch {}
-  return { ok: true, on: true, port: st.port, model, ip };
+  if (!st.on) return { ok: false, on: false, error: 'TV is not answering at ' + ip + '. It may be off or the IP moved. Tap Find TV.' };
+  const info = parseSamsungBody(st.body, ip);
+  info.port = st.port;
+  persistSamsung(info);
+  return info;
+}
+
+async function samsungFind() {
+  const st = loadState();
+  const guesses = [];
+  if (st.tv) guesses.push(st.tv);
+  guesses.push('192.168.1.145');
+  const seen = new Set();
+  for (const ip of guesses) {
+    if (!ip || seen.has(ip)) continue;
+    seen.add(ip);
+    const hit = await probeSamsung(ip);
+    if (hit) {
+      persistSamsung(hit);
+      return { ok: true, found: true, ...hit };
+    }
+  }
+  const base = lanBase();
+  const ips = [];
+  for (let i = 2; i <= 254; i++) ips.push(`${base}.${i}`);
+  let idx = 0;
+  let found = null;
+  async function worker() {
+    while (idx < ips.length && !found) {
+      const ip = ips[idx++];
+      if (seen.has(ip)) continue;
+      const open = await portOpen(ip, 8001, 250);
+      if (!open) continue;
+      const hit = await probeSamsung(ip);
+      if (hit) found = hit;
+    }
+  }
+  await Promise.all(Array.from({ length: 40 }, worker));
+  if (!found) return { ok: false, error: 'No Samsung answered on the LAN. Turn the TV on with the physical remote, press Home, then Find TV again.' };
+  persistSamsung(found);
+  return { ok: true, found: true, ...found };
 }
 
 async function samsungSendKey(ip, key, token) {
   let out = await samsungKey(ip, key, token, false);
   if (!out.ok) out = await samsungKey(ip, key, token, true);
+  if (!out.ok) out = await samsungLegacy(ip, key);
   return out;
 }
 
 async function samsungPair(ip, token) {
   let out = await samsungKey(ip, '', token, false, 25000);
   if (!out.ok) out = await samsungKey(ip, '', token, true, 12000);
+  if (!out.ok) out = await samsungLegacy(ip, '');
+  if (out.ok) persistSamsung({ ip, token: out.token });
   return out;
 }
 
 async function samsungPower({ ip, on, token, mac }) {
-  if (!ip) return { ok: false, error: 'TV IP missing' };
+  const st = loadState();
+  ip = ip || st.tv;
+  mac = mac || st.tvmac;
+  token = token || st.tvtoken;
+  if (!ip) {
+    const found = await samsungFind();
+    if (!found.ok) return found;
+    ip = found.ip;
+    mac = found.mac || mac;
+  }
   const alive = await samsungIsOn(ip);
-  if (on && alive.on) return { ok: true, already: true, on: true, token };
-  if (!on && !alive.on) return { ok: true, already: true, on: false, token };
+  if (on && alive.on) return { ok: true, already: true, on: true, ip, token };
+  if (!on && !alive.on) return { ok: true, already: true, on: false, ip, token };
   if (on && !alive.on && mac) {
-    await wol(mac, `${lanBase()}.255`);
-    await sleep(2800);
+    await wol(mac, `${lanBase()}.255`, ip);
+    await sleep(3500);
     const again = await samsungIsOn(ip);
-    if (again.on) return { ok: true, via: 'wol', on: true, token };
+    if (again.on) return { ok: true, via: 'wol', on: true, ip, token };
   }
   const out = await samsungSendKey(ip, 'KEY_POWER', token);
   await sleep(1600);
   const now = await samsungIsOn(ip);
   const good = on ? now.on : !now.on;
+  if (out.token) persistSamsung({ ip, token: out.token, mac });
   return {
     ok: good,
     on: now.on,
+    ip,
     token: out.token || token,
-    error: good ? undefined : (out.error || 'TV ignored power.'),
+    via: out.via,
+    error: good ? undefined : (out.error || 'TV ignored power. Press Home on the set, then Pair TV.'),
   };
 }
 
@@ -665,9 +779,12 @@ const server = http.createServer(async (rq, rs) => {
       return json(rs, 200, await samsungPair(b.ip, b.token));
     }
     if (p === '/api/samsung/info') {
-      const ip = url.searchParams.get('ip');
+      const ip = url.searchParams.get('ip') || loadState().tv;
       if (!ip) return json(rs, 400, { ok: false, error: 'ip required' });
       return json(rs, 200, await samsungInfo(ip));
+    }
+    if (p === '/api/samsung/find') {
+      return json(rs, 200, await samsungFind());
     }
 
     return serveStatic(rq, rs);
