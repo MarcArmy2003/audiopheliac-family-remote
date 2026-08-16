@@ -121,6 +121,20 @@ async function probeBose(ip) {
   return { type: 'bose', ip, name, detail: `${type} ${id}`.trim(), deviceID: id };
 }
 
+function isFamilyRoomTv(d) {
+  const blob = `${d.model || ''} ${d.detail || ''} ${d.name || ''}`.toUpperCase();
+  if (/U7900|U79|LANAI/.test(blob)) return false;
+  if (d.ip === '192.168.1.239') return false;
+  if (/NU6950|NU69|KANTM2/.test(blob)) return true;
+  if (d.ip === '192.168.1.145') return true;
+  return false;
+}
+
+function isLanaiTv(d) {
+  const blob = `${d.model || ''} ${d.detail || ''} ${d.name || ''}`.toUpperCase();
+  return /U7900|U79|LANAI/.test(blob) || d.ip === '192.168.1.239';
+}
+
 async function probeSamsung(ip) {
   let r = await req(`http://${ip}:8001/api/v2/`, { timeout: 2500 });
   if (!r.ok) {
@@ -134,6 +148,7 @@ async function probeSamsung(ip) {
       type: 'samsung', ip,
       name: d.name || j.name || 'Samsung TV',
       detail: `${d.modelName || ''} ${d.model || ''}`.trim(),
+      model: d.modelName || d.model || '',
       mac: (d.wifiMac || '').toUpperCase(),
       secure: !!d.TokenAuthSupport,
     };
@@ -460,38 +475,53 @@ async function samsungInfo(ip) {
 
 async function samsungFind() {
   const st = loadState();
-  const guesses = [];
-  if (st.tv) guesses.push(st.tv);
-  guesses.push('192.168.1.145');
+  const tvs = [];
   const seen = new Set();
-  for (const ip of guesses) {
-    if (!ip || seen.has(ip)) continue;
-    seen.add(ip);
-    const hit = await probeSamsung(ip);
-    if (hit) {
-      persistSamsung(hit);
-      return { ok: true, found: true, ...hit };
-    }
+  const consider = (hit) => {
+    if (!hit || seen.has(hit.ip)) return;
+    seen.add(hit.ip);
+    tvs.push(hit);
+  };
+
+  for (const ip of [st.tv, '192.168.1.145']) {
+    if (!ip) continue;
+    consider(await probeSamsung(ip));
   }
+
   const base = lanBase();
   const ips = [];
   for (let i = 2; i <= 254; i++) ips.push(`${base}.${i}`);
   let idx = 0;
-  let found = null;
   async function worker() {
-    while (idx < ips.length && !found) {
+    while (idx < ips.length) {
       const ip = ips[idx++];
       if (seen.has(ip)) continue;
       const open = await portOpen(ip, 8001, 250);
       if (!open) continue;
-      const hit = await probeSamsung(ip);
-      if (hit) found = hit;
+      consider(await probeSamsung(ip));
     }
   }
   await Promise.all(Array.from({ length: 40 }, worker));
-  if (!found) return { ok: false, error: 'No Samsung answered on the LAN. Turn the TV on with the physical remote, press Home, then Find TV again.' };
-  persistSamsung(found);
-  return { ok: true, found: true, ...found };
+
+  const family = tvs.filter(isFamilyRoomTv);
+  const lanai = tvs.filter(isLanaiTv);
+  const pick = family[0] || null;
+  if (!pick) {
+    const extra = lanai.length ? ' Found the lanai set (' + lanai.map((t) => (t.model || t.ip)).join(', ') + ') — ignored.' : '';
+    return {
+      ok: false,
+      seen: tvs,
+      error: 'Family Room NU6950 is not answering.' + extra + ' Turn that set on, press Home, Find TV again.',
+    };
+  }
+  persistSamsung(pick);
+  return {
+    ok: true,
+    found: true,
+    room: 'family',
+    ...pick,
+    ignored: lanai.map((t) => ({ ip: t.ip, model: t.model })),
+  };
 }
 
 async function samsungSendKey(ip, key, token) {

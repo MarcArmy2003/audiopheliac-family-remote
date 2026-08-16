@@ -295,7 +295,8 @@ hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
 
   <section class="page" id="p-video">
     <div class="card">
-      <h2>Samsung NU6950</h2>
+      <h2>Family Room — NU6950</h2>
+      <div class="meta" id="m-tv">UN65NU6950 · never the lanai U7900</div>
       <div class="meta" id="m-tv">not found yet</div>
       <div class="row">
         <button class="btn gold" data-tv="on">TV on</button>
@@ -485,7 +486,7 @@ $('#tv-find').addEventListener('click',function(){
     if(r&&r.ok){
       CFG.tv=r.ip;if(r.mac)CFG.tvmac=r.mac;saveCfg();fillForm();
       $('#m-tv').textContent=(r.model||'Samsung')+' · '+r.ip+(r.mac?(' · '+r.mac):'');
-      toast('Found '+r.ip);
+      toast('Family Room TV '+r.ip+(r.model?(' · '+r.model):''));
     }else toast((r&&r.error)||'TV not on the LAN');
   });
 });
