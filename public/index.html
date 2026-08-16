@@ -304,7 +304,7 @@ hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
       <p class="hint">These two only touch the Samsung. Nothing else changes.</p>
       <button class="btn gold wide" id="tv-find" style="margin-top:10px">Find TV</button>
       <button class="btn wide" id="tv-pair" style="margin-top:8px">Pair TV</button>
-      <p class="hint">If nothing pops up: press <b>Home</b> on the Samsung first. Then Settings → General → External device manager → Device connection manager → on. Access notification: First time. Then tap Pair TV and watch the set for 20 seconds.</p>
+      <p class="hint">Power will not show a box on the TV. Use <b>Pair TV</b> only. TV must be on the <b>Home</b> screen — leave PlayStation / HDMI. Watch the top-right of the set for ~50 seconds. Allow Audiopheliac.</p>
       <div class="row" style="margin-top:9px">
         <button class="btn sm" data-t="KEY_SOURCE">Source</button>
         <button class="btn sm" data-t="KEY_HDMI">HDMI</button>
@@ -491,7 +491,7 @@ $('#tv-find').addEventListener('click',function(){
 });
 $('#tv-pair').addEventListener('click',function(){
   if(!CFG.tv){toast('TV IP missing');return}
-  $('#tv-pair').disabled=true;$('#tv-pair').textContent='Look at the TV…';
+  $('#tv-pair').disabled=true;$('#tv-pair').textContent='Watch the TV 50s…';
   api('/api/samsung/info?ip='+encodeURIComponent(CFG.tv)).then(function(info){
     if(info&&info.ok){$('#m-tv').textContent=info.model+' · '+info.ip+' · on'}
     else{$('#m-tv').textContent=(info&&info.error)||'TV not answering'}

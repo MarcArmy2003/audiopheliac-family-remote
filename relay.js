@@ -246,9 +246,12 @@ function samsungKey(ip, key, token, secure = true, waitMs) {
       host: ip, port, path: p, method: 'GET', rejectUnauthorized: false,
       timeout: limit,
       headers: {
-        Connection: 'Upgrade', Upgrade: 'websocket',
-        'Sec-WebSocket-Key': wsKey, 'Sec-WebSocket-Version': '13',
-        Origin: 'http://' + ip + ':' + port,
+        Host: ip + ':' + port,
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Key': wsKey,
+        'Sec-WebSocket-Version': '13',
+        Origin: (secure ? 'https://' : 'http://') + ip + ':' + port,
       },
     });
     let settled = false;
@@ -503,11 +506,104 @@ async function samsungSendKey(ip, key, token) {
 }
 
 async function samsungPair(ip, token) {
-  let out = await samsungKey(ip, '', token, false, 25000);
-  if (!out.ok) out = await samsungKey(ip, '', token, true, 12000);
-  if (!out.ok) out = await samsungLegacy(ip, '');
-  if (out.ok) persistSamsung({ ip, token: out.token });
-  return out;
+  const st = loadState();
+  ip = ip || st.tv;
+  let info = ip ? await samsungInfo(ip) : { ok: false };
+  if (!info.ok) {
+    const found = await samsungFind();
+    if (!found.ok) {
+      return { ok: false, error: 'TV is not on the LAN. Turn it on with the physical remote, press Home (leave HDMI), then Pair TV.' };
+    }
+    ip = found.ip;
+    info = found;
+  }
+
+  const names = ['Audiopheliac', 'JavaScriptRemote', 'SmartView SDK'];
+  // Hold the socket open. The Allow box only exists while this connection is alive.
+  for (const name of names) {
+    let out = await samsungKeyNamed(ip, '', token, false, 50000, name);
+    if (out.ok) {
+      persistSamsung({ ip, token: out.token, mac: info.mac });
+      return { ok: true, paired: true, ip, token: out.token, name, port: out.port, model: info.model };
+    }
+    out = await samsungKeyNamed(ip, '', token, true, 50000, name);
+    if (out.ok) {
+      persistSamsung({ ip, token: out.token, mac: info.mac });
+      return { ok: true, paired: true, ip, token: out.token, name, port: out.port, model: info.model };
+    }
+  }
+  return {
+    ok: false,
+    ip,
+    model: info.model,
+    error: 'TV at ' + ip + ' is on, but never showed Allow. Press Home (not HDMI). Settings → General → External device manager → Device connection manager → On. Access notification → Always. Then Pair TV and watch the top-right of the screen for 50 seconds.',
+  };
+}
+
+function samsungKeyNamed(ip, key, token, secure, waitMs, appName) {
+  return new Promise((resolve) => {
+    const name = encodeURIComponent(Buffer.from(appName || 'Audiopheliac').toString('base64'));
+    const port = secure ? 8002 : 8001;
+    const p = `/api/v2/channels/samsung.remote.control?name=${name}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    const wsKey = crypto.randomBytes(16).toString('base64');
+    const mod = secure ? https : http;
+    const limit = waitMs || (secure ? 3500 : 8000);
+    const r = mod.request({
+      host: ip, port, path: p, method: 'GET', rejectUnauthorized: false,
+      timeout: limit,
+      headers: {
+        Host: ip + ':' + port,
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Key': wsKey,
+        'Sec-WebSocket-Version': '13',
+        Origin: (secure ? 'https://' : 'http://') + ip + ':' + port,
+      },
+    });
+    let settled = false;
+    const fin = (v) => { if (!settled) { settled = true; resolve(v); } };
+    const timer = setTimeout(() => {
+      try { r.destroy(); } catch {}
+      fin({ ok: false, error: 'no allow on port ' + port });
+    }, limit);
+
+    r.on('upgrade', (res, socket) => {
+      let buf = Buffer.alloc(0);
+      let newToken = null;
+      const done = (v) => { clearTimeout(timer); try { socket.destroy(); } catch {} fin(v); };
+      socket.on('data', (c) => {
+        buf = Buffer.concat([buf, c]);
+        const { msgs, rest } = decodeFrames(buf);
+        buf = rest;
+        for (const m of msgs) {
+          let j; try { j = JSON.parse(m); } catch { continue; }
+          if (j.event === 'ms.channel.connect') {
+            if (j.data && j.data.token) newToken = j.data.token;
+            if (key) {
+              socket.write(encodeFrame(JSON.stringify({
+                method: 'ms.remote.control',
+                params: { Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' },
+              })));
+              setTimeout(() => done({ ok: true, token: newToken, port }), 500);
+            } else done({ ok: true, paired: true, token: newToken, port });
+          }
+          if (j.event === 'ms.channel.unauthorized') {
+            done({ ok: false, error: 'denied on port ' + port });
+          }
+        }
+      });
+      socket.on('error', (e) => { clearTimeout(timer); fin({ ok: false, error: e.message }); });
+    });
+    r.on('response', (res) => {
+      const code = res.statusCode;
+      res.resume();
+      clearTimeout(timer);
+      fin({ ok: false, error: 'refused ' + port + ' HTTP ' + code });
+    });
+    r.on('timeout', () => { try { r.destroy(); } catch {} });
+    r.on('error', (e) => { clearTimeout(timer); fin({ ok: false, error: e.message }); });
+    r.end();
+  });
 }
 
 async function samsungPower({ ip, on, token, mac }) {
