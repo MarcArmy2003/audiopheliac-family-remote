@@ -492,9 +492,13 @@ async function samsungFind() {
 }
 
 async function samsungSendKey(ip, key, token) {
-  let out = await samsungKey(ip, key, token, false);
-  if (!out.ok) out = await samsungKey(ip, key, token, true);
-  if (!out.ok) out = await samsungLegacy(ip, key);
+  const p8001 = await portOpen(ip, 8001, 400);
+  const p8002 = p8001 ? false : await portOpen(ip, 8002, 400);
+  const p55000 = await portOpen(ip, 55000, 300);
+  let out = { ok: false, error: 'TV ports closed' };
+  if (p8001) out = await samsungKey(ip, key, token, false, 3000);
+  if (!out.ok && (p8002 || !p8001)) out = await samsungKey(ip, key, token, true, 2500);
+  if (!out.ok && p55000) out = await samsungLegacy(ip, key);
   return out;
 }
 
@@ -511,34 +515,50 @@ async function samsungPower({ ip, on, token, mac }) {
   ip = ip || st.tv;
   mac = mac || st.tvmac;
   token = token || st.tvtoken;
-  if (!ip) {
+
+  let alive = ip ? await samsungIsOn(ip) : { on: false };
+  if (!alive.on) {
     const found = await samsungFind();
-    if (!found.ok) return found;
-    ip = found.ip;
-    mac = found.mac || mac;
+    if (found.ok) {
+      ip = found.ip;
+      mac = found.mac || mac;
+      alive = { on: true };
+    }
   }
-  const alive = await samsungIsOn(ip);
+
   if (on && alive.on) return { ok: true, already: true, on: true, ip, token };
-  if (!on && !alive.on) return { ok: true, already: true, on: false, ip, token };
-  if (on && !alive.on && mac) {
-    await wol(mac, `${lanBase()}.255`, ip);
-    await sleep(3500);
-    const again = await samsungIsOn(ip);
-    if (again.on) return { ok: true, via: 'wol', on: true, ip, token };
+  if (!on && !alive.on) {
+    if (mac && on === false) return { ok: true, already: true, on: false, ip };
+    return { ok: true, already: true, on: false, ip };
   }
+
+  if (on && !alive.on) {
+    if (mac) {
+      await wol(mac, `${lanBase()}.255`, ip);
+      await sleep(3500);
+      const again = await samsungIsOn(ip);
+      if (again.on) return { ok: true, via: 'wol', on: true, ip, token };
+    }
+    return { ok: false, on: false, ip, error: 'TV is off or left Wi-Fi. Power it on once with the physical remote, Home, then Find TV.' };
+  }
+
+  // TV is answering HTTP. Send power. If WS times out, it is a pairing problem.
   const out = await samsungSendKey(ip, 'KEY_POWER', token);
-  await sleep(1600);
+  await sleep(1400);
   const now = await samsungIsOn(ip);
-  const good = on ? now.on : !now.on;
   if (out.token) persistSamsung({ ip, token: out.token, mac });
-  return {
-    ok: good,
-    on: now.on,
-    ip,
-    token: out.token || token,
-    via: out.via,
-    error: good ? undefined : (out.error || 'TV ignored power. Press Home on the set, then Pair TV.'),
-  };
+  const good = on ? now.on : !now.on;
+  if (good) return { ok: true, on: now.on, ip, token: out.token || token, via: out.via };
+  if (alive.on && !out.ok) {
+    return {
+      ok: false,
+      on: now.on,
+      ip,
+      needsPair: true,
+      error: 'TV is on at ' + ip + ' but blocked the remote. Video → Pair TV. Watch the set for Allow Audiopheliac.',
+    };
+  }
+  return { ok: false, on: now.on, ip, token: out.token || token, error: out.error || 'TV ignored power.' };
 }
 
 /* ---------------- static file serving ---------------- */
@@ -843,8 +863,7 @@ const server = http.createServer(async (rq, rs) => {
     if (p === '/api/samsung/key' && rq.method === 'POST') {
       const b = await readBody(rq);
       if (!b.ip || !b.key) return json(rs, 400, { ok: false, error: 'ip and key required' });
-      let out = await samsungKey(b.ip, b.key, b.token, b.secure !== false);
-      if (!out.ok && b.secure !== false) out = await samsungKey(b.ip, b.key, b.token, false);
+      const out = await samsungSendKey(b.ip, b.key, b.token);
       return json(rs, 200, out);
     }
 
